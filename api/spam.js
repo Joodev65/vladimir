@@ -1,20 +1,18 @@
 import crypto from 'crypto';
 
 export default async function handler(req, res) {
-  /* ---------- 1. CORS ---------- */
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  /* ---------- 2. Ambil query ---------- */
-  const { u, m, c = 10 } = req.query;          // c = jumlah pesan
+  const { u, m, c = 10 } = req.query;          
   const target = parseInt(c, 10) || 10;
   if (!u || !m || target <= 0) {
     return res.status(400).json({ error: 'u, m, c harus valid' });
   }
 
-  /* ---------- 3. Siapkan SSE ---------- */
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -24,7 +22,7 @@ export default async function handler(req, res) {
   const sendSSE = (type, payload) =>
     res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
 
-  /* ---------- 4. Loop terkendali ---------- */
+  
   while (sent < target && fail < 10) {
     try {
       const deviceId = crypto.randomBytes(21).toString('hex');
@@ -63,7 +61,7 @@ export default async function handler(req, res) {
           sendSSE('done', { sent, target });
           break;
         }
-        /* jeda 2 detik agar tidak kena rate-limit */
+        
         await new Promise(r => setTimeout(r, 2000));
       } else {
         fail++;
