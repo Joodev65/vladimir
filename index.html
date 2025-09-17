@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NGL Message Tool</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #f8f9fa;
+      color: #202124;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+      padding: 40px;
+      width: 100%;
+      max-width: 480px;
+    }
+    
+    h1 {
+      font-size: 24px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      text-align: center;
+      color: #1a73e8;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      color: #5f6368;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    
+    .form-group {
+      margin-bottom: 24px;
+    }
+    
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: #3c4043;
+    }
+    
+    input, textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 16px;
+      font-family: 'Poppins', sans-serif;
+      transition: border-color 0.2s;
+    }
+    
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #1a73e8;
+    }
+    
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 32px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'Poppins', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #1a73e8;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #1557b0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.24);
+    }
+    
+    .btn-secondary {
+      background: #f1f3f4;
+      color: #3c4043;
+    }
+    
+    .btn-secondary:hover {
+      background: #e8eaed;
+    }
+    
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .status {
+      margin-top: 24px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .status-item {
+      margin-bottom: 8px;
+      padding: 4px 0;
+    }
+    
+    .success {
+      color: #137333;
+    }
+    
+    .error {
+      color: #d93025;
+    }
+    
+    .info {
+      color: #1a73e8;
+    }
+    
+    .counter {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 14px;
+      color: #5f6368;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>NGL Message Tool</h1>
+    <p class="subtitle">Kirim pesan anonim ke NGL dengan kontrol jumlah</p>
+    
+    <form id="form">
+      <div class="form-group">
+        <label for="username">Username NGL</label>
+        <input type="text" id="username" placeholder="contoh: johndoe" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="message">Pesan yang akan dikirim</label>
+        <textarea id="message" placeholder="Tulis pesan Anda di sini..." required></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label for="count">Jumlah pesan yang ingin dikirim</label>
+        <input type="number" id="count" min="1" max="1000" value="10" required>
+      </div>
+      
+      <div class="button-group">
+        <button type="submit" class="btn-primary" id="submitBtn">Kirim Pesan</button>
+        <button type="button" class="btn-secondary" id="stopBtn" disabled>Stop</button>
+      </div>
+    </form>
+    
+    <div id="status" class="status" style="display: none;">
+      <div id="statusContent"></div>
+      <div id="counter" class="counter"></div>
+    </div>
+  </div>
+
+  <script>
+    let isRunning = false;
+    let eventSource = null;
+    
+    const form = document.getElementById('form');
+    const submitBtn = document.getElementById('submitBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const status = document.getElementById('status');
+    const statusContent = document.getElementById('statusContent');
+    const counter = document.getElementById('counter');
+    
+    function addStatus(message, type = 'info') {
+      const div = document.createElement('div');
+      div.className = `status-item ${type}`;
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      statusContent.appendChild(div);
+      statusContent.scrollTop = statusContent.scrollHeight;
+    }
+    
+    function updateCounter(sent, total) {
+      counter.textContent = `Progress: ${sent} / ${total} pesan terkirim`;
+    }
+    
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (isRunning) return;
+      
+      const username = document.getElementById('username').value.trim();
+      const message = document.getElementById('message').value.trim();
+      const count = parseInt(document.getElementById('count').value);
+      
+      if (!username || !message || !count) {
+        addStatus('Mohon isi semua field', 'error');
+        return;
+      }
+      
+      isRunning = true;
+      submitBtn.disabled = true;
+      stopBtn.disabled = false;
+      status.style.display = 'block';
+      statusContent.innerHTML = '';
+      
+      addStatus(`Memulai pengiriman ${count} pesan ke @${username}...`);
+      updateCounter(0, count);
+      
+      const params = new URLSearchParams({
+        u: username,
+        m: message,
+        c: count
+      });
+      
+      eventSource = new EventSource(`/api/spam?${params}`);
+      
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'success') {
+          addStatus(data.message, 'success');
+          updateCounter(data.sent, count);
+        } else if (data.type === 'error') {
+          addStatus(data.message, 'error');
+        } else if (data.type === 'complete') {
+          addStatus(data.message, 'info');
+          stopProcess();
+        }
+      };
+      
+      eventSource.onerror = () => {
+        addStatus('Koneksi terputus', 'error');
+        stopProcess();
+      };
+    });
+    
+    stopBtn.addEventListener('click', () => {
+      if (eventSource) {
+        addStatus('Menghentikan proses...', 'info');
+        eventSource.close();
+      }
+      stopProcess();
+    });
+    
+    function stopProcess() {
+      isRunning = false;
+      submitBtn.disabled = false;
+      stopBtn.disabled = true;
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    }
+  </script>
+</body>
+  </html>
