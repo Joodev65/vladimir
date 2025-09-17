@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/spam.js": {
+      "maxDuration": 300
+    }
+  }
+}
